@@ -1,0 +1,8 @@
+
+model_ba<-lm(CPBA_ir~YOB + YOB2, data=br_dt)
+summary(model_ba)
+
+timevalues<-seq(2005, 2015, 0.1)
+predictedcounts <- predict(model_ba,list(YOB=timevalues, YOB2=timevalues^2))
+plot(br_dt$YOB, br_dt$CPBA_ir, pch=16, main='CP due to BA', xlab = "YOB", ylab = " CP IR", cex.lab = 1.3, col = "blue")
+lines(timevalues, predictedcounts, col = "darkgreen", lwd = 3)
