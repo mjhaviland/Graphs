@@ -1,0 +1,68 @@
+DATA STRUCTURE: DATA MUST BE AGGREGATED PER UNIT OF TIME IN ANALYSIS. ONE OBSERVATION PER TIME UNIT (E.G. PROPORTION OF READMISSIONS PER MONTH)
+
+1. CREATE BASE GRAPH. tHIS WILL PRODUCE A SCATTER PLOT THAT ITS SLOPES WILL LATER BE OVERLAID ONTO
+
+#scatter plot for proportion of readmission w/in 30 days to inpatient service
+plot_ip<-ggplot(data = its_data_model, mapping = aes(x = DateNumCtr, y =prop_ip30 )) +
+      geom_point(size=2, shape=23)+
+     theme_classic() + xlab("Month since ACA implementation") +
+  ylab("Proportion of IP readmissions within 30 days of discharge")
+print(plot_ip)
+
+
+2. RUN ITS ANALYSIS TO GET SLOPES AND PREDICTED VALUES
+#Non-ITS model
+model1_a<-lm(prop_ip30 ~ 1+DateNumCtr, data=its_data_model)
+summary(model1_a)
+
+#ITS Model, month centered on ACA initiation
+model1_b<-lm(prop_ip30 ~ (1+DateNumCtr)*factor(PERIOD), data=its_data)
+summary(model1_b)  # no differences in both intercepts and slopes between the two periods! see last two coefficients!
+confint(model1_b)
+sum(coef(model1_b)[c(1, 4)]) # intercept for second period, the coefficient is the difference between intercepts
+sum(coef(model1_b)[c(2, 6)]) # slope for the second period, the coefficient is the difference between slopes
+
+#Pre-ACA intercept and slope
+model1_c<-lm(prop_ip30 ~ 1+DateNumCtr, data=subset(its_data, PERIOD==0))
+summary(model1_c)
+confint(model1_c, level=0.95)
+
+#Post-ACA intercept and slope
+model1_d<-lm(prop_ip30 ~ 1+DateNumCtr, data=subset(its_data, PERIOD==2))
+summary(model1_d)
+confint(model1_d, level=0.95)
+
+3. CREATE DATASET WITH PREDICTED VALUES FROM THE REGRESSION MODELS TO OVERLAY SLOPES ON THE SCATTERPLOT
+newdata <- data.frame(DateNumCtr = seq(min(its_data$DateNumCtr), max(its_data$DateNumCtr), by  = 1))
+
+newdata<-newdata %>%
+    mutate(PERIOD=case_when(DateNumCtr<0 ~ 0,
+                            DateNumCtr>=0 & DateNumCtr<6 ~1,
+                            DateNumCtr>=6 ~ 2))
+
+newdata$prop_ip30= predict(model1_b, type="response")
+
+#create new dataset with two additional observations both approaching washout period boundaries so slopes touch the dotted line. will carry last/first predicted value forward/backward for these two points
+df<-list(DateNumCtr=-0.1, PERIOD='0', prop_ip30=0.05537316)
+df1<-list(DateNumCtr=6.1, PERIOD='2', prop_ip30=0.09654667)
+nd2<-rbind(newdata, df, df1)
+View(nd2)
+
+
+4. OVERLAY SLOPES ON SCATTER TO CREATE FINAL PLOT
+plot_ip +
+  geom_line(data = subset(nd2, DateNumCtr <0), color = "black", size = 1)+
+  geom_line(data = subset(nd2, DateNumCtr >6), color = "black", size = 1) +
+  geom_vline(xintercept=c(0), linetype="dotted") +
+  geom_vline(xintercept=c(6), linetype="dotted") +
+  scale_x_continuous(limits=c(-30, 24)) +
+  scale_y_continuous(limits=c(0, 0.2)) +
+  annotate("text", x = -29.5, y = 0.2, hjust=0, label = "~underline('Pre-ACA')", parse=T) +
+  annotate("text", x = -29, y = 0.19, hjust=0, label = "Intercept: 0.06 (0.03, 0.07)")+
+  annotate("text", x = -29, y = 0.18, hjust=0, label = "Slope: 0.0001 (-0.001, 0.001)")+
+  annotate("text", x =6, y = 0.2, hjust=0, label = "~underline('Post-ACA')", parse=T) +
+  annotate("text", x = 6.5, y = 0.19, hjust=0, label = "Intercept: 0.10 (0.07, 0.12)")+
+  annotate("text", x = 6.5, y = 0.18, hjust=0, label = "Slope: 0.0001 (-0.002, 0.002)") 
+
+5. SAVE PLOT
+ggsave('ip_overall.jpeg', plot=last_plot(), width=7, height=5, device='jpeg')
