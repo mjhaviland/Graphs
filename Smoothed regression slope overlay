@@ -1,0 +1,11 @@
+fig1a<-ggplot(data=figure_nt, aes(x=Year, y=hr_num)) +
+  geom_line(aes(group = State))+
+  geom_smooth(method='loess', formula= y~x, se=F, color='red', size=0.75)+
+  theme_classic()+
+  scale_x_continuous(name='\n Year', breaks=c(1995, 2000, 2005, 2010, 2015))+
+  scale_y_continuous(name='Homicide rate per 100,000 population \n', limits=c(0,2))+
+  theme(axis.text.x=element_text(size=12))+
+  theme(axis.text.y=element_text(size=12))+
+  theme(axis.title.x=element_text(size=12))+
+  theme(axis.title.y=element_text(size=12))
+print(fig1a)
